@@ -31,6 +31,7 @@ public class EquiptItem : MonoBehaviour
         {
             // 필요하다면 IInteractable 체크 등 추가 가능
             Destroy(h.gameObject);
+            ScoreManager.Instance.AddScore(1);
             Debug.Log($"{h.gameObject.name} 아이템이 파괴되었습니다.");
         }
     }
