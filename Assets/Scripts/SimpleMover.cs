@@ -60,6 +60,7 @@ using UnityEngine;
             // 4) 이동 (중력 자동 적용)
             cc.SimpleMove(moveDir * targetSpeed);
             animator.SetFloat("Speed", targetSpeed);
+
             // 5) 회전(이동 방향 바라보기)
             if (faceMoveDir && IsMoving)
             {
