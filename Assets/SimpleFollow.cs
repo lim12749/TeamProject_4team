@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.AI;
 
 public class SimpleFollow : MonoBehaviour
 {
@@ -32,9 +33,24 @@ public class SimpleFollow : MonoBehaviour
 
     private Animator animator;
 
+    // ✅ NavMesh
+    private NavMeshAgent agent;
+    private bool hasAgent;
+
     void Start()
     {
         animator = GetComponent<Animator>();
+
+        // NavMeshAgent 가져오기(이미 붙어있다고 했으니 Add 안 함)
+        agent = GetComponent<NavMeshAgent>();
+        hasAgent = (agent != null);
+
+        if (hasAgent)
+        {
+            agent.updateRotation = true;
+            agent.updateUpAxis = true;
+        }
+
         currentHP = maxHP;
         origin = transform.position;
 
@@ -61,6 +77,12 @@ public class SimpleFollow : MonoBehaviour
         }
     }
 
+    // ✅ agent가 실제로 NavMesh 위에 있을 때만 제어
+    bool AgentReady()
+    {
+        return hasAgent && agent != null && agent.isOnNavMesh && agent.enabled;
+    }
+
     void ChangeState(State newState)
     {
         if (currentState == newState) return;
@@ -73,52 +95,58 @@ public class SimpleFollow : MonoBehaviour
             case State.Idle:
                 SetFace(faces.Idleface);
                 animator.SetFloat("Speed", 0);
+                if (AgentReady()) agent.isStopped = true;
                 break;
+
             case State.Walk:
                 SetFace(faces.WalkFace);
                 animator.SetFloat("Speed", walkSpeed);
                 break;
+
             case State.Jump:
                 SetFace(faces.jumpFace);
                 animator.SetTrigger("Jump");
                 break;
+
             case State.Attack:
                 SetFace(faces.attackFace);
                 animator.SetTrigger("Attack");
                 break;
+
             case State.Damage:
                 SetFace(faces.damageFace);
                 animator.SetTrigger("Damage");
                 animator.SetInteger("DamageType", damType);
+                if (AgentReady()) agent.isStopped = true;
                 break;
         }
     }
 
     public void TakeDamage(int amount)
     {
-        if (currentState == State.Damage && damType == 0) return; // 이미 죽는 중이면 무시
+        if (currentState == State.Damage && damType == 0) return;
 
         currentHP -= amount;
 
         if (currentHP <= 0)
         {
             currentHP = 0;
-            damType = 0; // 죽는 애니메이션
+            damType = 0;
             ChangeState(State.Damage);
             return;
         }
 
-        damType = 1; // 맞는 애니메이션
+        damType = 1;
         ChangeState(State.Damage);
     }
 
     void CheckPlayerDistance()
     {
-        if (currentState == State.Damage && damType == 0) return; // 죽는 중이면 무시
-
+        if (currentState == State.Damage && damType == 0) return;
         if (player == null) return;
 
-        float dist = Vector3.Distance(transform.position, player.position);
+        // ✅ 거리 판단은 수평 기준(사다리/박스 꼼수 완화)
+        float dist = FlatDistToPlayer();
 
         if (dist <= attackDistance)
             ChangeState(State.Attack);
@@ -141,6 +169,22 @@ public class SimpleFollow : MonoBehaviour
 
     void UpdateWalk()
     {
+        // ✅ NavMesh 이동
+        if (AgentReady())
+        {
+            agent.isStopped = false;
+            agent.speed = walkSpeed;
+            agent.stoppingDistance = 0.1f;
+            agent.SetDestination(targetPatrolPoint);
+
+            bool arrived = !agent.pathPending && agent.remainingDistance <= 0.5f;
+            if (arrived)
+                ChangeState(State.Idle);
+
+            return;
+        }
+
+        // (백업) NavMesh 못 쓰는 상황이면 기존 이동 유지
         Vector3 dir = targetPatrolPoint - transform.position;
         if (dir != Vector3.zero)
         {
@@ -160,6 +204,17 @@ public class SimpleFollow : MonoBehaviour
     {
         if (player == null) return;
 
+        // ✅ NavMesh로 추적 이동
+        if (AgentReady())
+        {
+            agent.isStopped = false;
+            agent.speed = jumpMoveSpeed;
+            agent.stoppingDistance = attackDistance * 0.9f;
+            agent.SetDestination(player.position);
+            return;
+        }
+
+        // (백업) 기존 이동
         Vector3 dir = (player.position - transform.position).normalized;
         transform.position += dir * jumpMoveSpeed * Time.deltaTime;
 
@@ -175,16 +230,30 @@ public class SimpleFollow : MonoBehaviour
     {
         if (player == null) return;
 
-        float dist = Vector3.Distance(transform.position, player.position);
+        // ✅ 공격 중 접근/멈춤 판단도 수평거리로(높이 차이 때문에 헛도는 것 완화)
+        float dist = FlatDistToPlayer();
 
-        // 공격 거리보다 멀면 조금 더 다가가기
         if (dist > attackDistance * 0.5f)
         {
-            Vector3 dir = (player.position - transform.position).normalized;
-            transform.position += dir * 3f * Time.deltaTime; // 기존 1.5f → 3f
+            if (AgentReady())
+            {
+                agent.isStopped = false;
+                agent.speed = 3f;
+                agent.stoppingDistance = attackDistance * 0.5f;
+                agent.SetDestination(player.position);
+            }
+            else
+            {
+                Vector3 dir = (player.position - transform.position).normalized;
+                transform.position += dir * 3f * Time.deltaTime;
+            }
+        }
+        else
+        {
+            if (AgentReady()) agent.isStopped = true;
         }
 
-        // 플레이어를 바라보기
+        // 바라보기(기존 유지)
         Vector3 lookDir = player.position - transform.position;
         lookDir.y = 0;
         if (lookDir != Vector3.zero)
@@ -194,7 +263,6 @@ public class SimpleFollow : MonoBehaviour
                 8f * Time.deltaTime
             );
     }
-
 
     void UpdateDamage() { }
 
@@ -209,7 +277,7 @@ public class SimpleFollow : MonoBehaviour
         // 표정 기능 제거 (선택사항)
     }
 
-    // 애니메이션 이벤트
+    // ✅ 애니메이션 이벤트
     public void AlertObservers(string msg)
     {
         if (msg == "AnimationAttackEnded" || msg == "AnimationJumpEnded")
@@ -219,16 +287,14 @@ public class SimpleFollow : MonoBehaviour
 
         if (msg == "AnimationDamageEnded")
         {
-            if (damType == 0) // 죽음 애니 끝
+            if (damType == 0)
             {
-                // ✅ 킬 수 증가
                 if (GameManager.Instance != null)
                     GameManager.Instance.AddKill();
 
                 Destroy(gameObject);
                 return;
             }
-
 
             float dist = Vector3.Distance(transform.position, origin);
             if (dist > 1f)
@@ -249,9 +315,7 @@ public class SimpleFollow : MonoBehaviour
         {
             PlayerHealth hp = collision.collider.GetComponent<PlayerHealth>();
             if (hp != null)
-            {
-                hp.TakeDamage(10);  // 플레이어에게 10 데미지
-            }
+                hp.TakeDamage(10);
         }
     }
 
@@ -259,7 +323,8 @@ public class SimpleFollow : MonoBehaviour
     {
         if (player == null) return;
 
-        float dist = Vector3.Distance(transform.position, player.position);
+        // ✅ 공격 판정도 수평거리로(사다리/박스 위여도 “수평으로 가까우면” 맞게)
+        float dist = FlatDistToPlayer();
         if (dist <= attackDistance + 0.5f)
         {
             PlayerHealth hp = player.GetComponent<PlayerHealth>();
@@ -268,5 +333,14 @@ public class SimpleFollow : MonoBehaviour
         }
     }
 
-
+    // ✅ 수평거리 계산 함수
+    float FlatDistToPlayer()
+    {
+        if (player == null) return Mathf.Infinity;
+        Vector3 a = transform.position;
+        Vector3 b = player.position;
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
+    }
 }

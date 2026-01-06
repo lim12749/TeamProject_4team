@@ -93,4 +93,14 @@ public class GameManager : MonoBehaviour
     {
         killCount++;
     }
+
+    // ? 게임오버 패널 "게임종료" 버튼에서 연결할 함수
+    public void QuitGame()
+    {
+        Application.Quit();
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
+    }
 }
