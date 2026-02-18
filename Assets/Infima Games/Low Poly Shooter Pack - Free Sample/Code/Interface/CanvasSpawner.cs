@@ -1,35 +1,32 @@
-﻿// Copyright 2021, Infima Games. All Rights Reserved.
-
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace InfimaGames.LowPolyShooterPack.Interface
 {
-    /// <summary>
-    /// Player Interface.
-    /// </summary>
     public class CanvasSpawner : MonoBehaviour
     {
-        #region FIELDS SERIALIZED
-
-        [Header("Settings")]
-        
-        [Tooltip("Canvas prefab spawned at start. Displays the player's user interface.")]
+        [Header("HUD Prefab (Infima)")]
         [SerializeField]
-        private GameObject canvasPrefab;
+        private GameObject hudCanvasPrefab;
 
-        #endregion
+        private GameObject spawnedHud;
 
-        #region UNITY FUNCTIONS
-
-        /// <summary>
-        /// Awake.
-        /// </summary>
         private void Awake()
         {
-            //Spawn Interface.
-            Instantiate(canvasPrefab);
+            // 플레이어 생성 시 HUD 생성
+            if (hudCanvasPrefab == null)
+            {
+                Debug.LogError("CanvasSpawner: hudCanvasPrefab이 Inspector에 연결되지 않았습니다.");
+                return;
+            }
+
+            spawnedHud = Instantiate(hudCanvasPrefab);
         }
 
-        #endregion
+        private void OnDestroy()
+        {
+            // 플레이어 삭제 시 HUD도 같이 삭제
+            if (spawnedHud != null)
+                Destroy(spawnedHud);
+        }
     }
 }

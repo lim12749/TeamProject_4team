@@ -843,8 +843,31 @@ namespace InfimaGames.LowPolyShooterPack
 			holstering = false;
 		}
 
-		#endregion
+        #endregion
 
-		#endregion
-	}
+        #endregion
+
+        public void ForceCursor(bool visible)
+        {
+            cursorLocked = !visible;
+            UpdateCursorState();
+        }
+
+        public Character playerCharacter; // Inspector에서 연결
+
+        public void ShowGameOver()
+        {
+
+            // 마우스 보여주기
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+
+            // 플레이어 입력 차단
+            if (playerCharacter != null)
+                playerCharacter.enabled = false;
+        }
+
+
+
+    }
 }
