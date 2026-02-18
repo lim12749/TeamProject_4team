@@ -8,6 +8,9 @@ public class GameUI : MonoBehaviour
     public GameObject gameplayUI;
     public GameObject gameOverPanel;
 
+    // ? ESC ÀÏ½ÃÁ¤Áö ÆÐ³Î
+    public GameObject pausePanel;
+
     public Slider hpBar;
     public TMP_Text timeText;
     public TMP_Text killText;
@@ -19,6 +22,7 @@ public class GameUI : MonoBehaviour
     void Start()
     {
         ShowStart();
+        ShowPause(false);     // ? ½ÃÀÛÇÒ ¶© PausePanel ¼û±è
         SetAssetHud(false);
     }
 
@@ -27,6 +31,7 @@ public class GameUI : MonoBehaviour
         startPanel.SetActive(true);
         gameplayUI.SetActive(false);
         gameOverPanel.SetActive(false);
+        ShowPause(false);     // ? È¤½Ã ÄÑÁ®ÀÖÀ¸¸é ¼û±è
     }
 
     public void ShowGameplay()
@@ -34,6 +39,7 @@ public class GameUI : MonoBehaviour
         startPanel.SetActive(false);
         gameplayUI.SetActive(true);
         gameOverPanel.SetActive(false);
+        ShowPause(false);     // ? °ÔÀÓ Áß¿¡´Â Pause ¼û±è
     }
 
     public void ShowGameOver(float time, int kills)
@@ -41,9 +47,17 @@ public class GameUI : MonoBehaviour
         startPanel.SetActive(false);
         gameplayUI.SetActive(false);
         gameOverPanel.SetActive(true);
+        ShowPause(false);     // ? °ÔÀÓ¿À¹ö¸é Pause ¼û±è
 
         timeText.text = $"Time: {time:F1}s";
         killText.text = $"Kill: {kills}";
+    }
+
+    // ? PausePanel ÄÑ°í ²ô±â (GameManager°¡ È£ÃâÇÔ)
+    public void ShowPause(bool show)
+    {
+        if (pausePanel != null)
+            pausePanel.SetActive(show);
     }
 
     public void UpdateHP(int cur, int max)
